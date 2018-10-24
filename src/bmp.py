@@ -92,21 +92,21 @@ class BMPImage:
     def __readPixels(self, input_file):
         input_file.seek(self.image_data_offset)
 
-        for pixel_index in range(0, self.width * self.height):
-            pixel_data = unpack("BBB", input_file.read(3))
+        for height_index in reversed(range(0, self.height)):
+            for width_index in range(0, self.width):
+                pixel_data = unpack("BBB", input_file.read(3))
 
-            new_pixel = Pixel(pixel_data[0], pixel_data[1], pixel_data[2])
+                # pixel_data[0] -> BLUE, pixel_data[1] -> GREEN, pixel_data[3] -> RED
+                new_pixel = Pixel(pixel_data[2], pixel_data[1], pixel_data[0])
 
-            self.pixels.append(new_pixel)
+                self.pixels.append(new_pixel)
 
-            if (pixel_index and self.width % pixel_index == 0):
-                padding = self.required_padding
+            padding = self.required_padding
 
-                while (padding):
-                    input_file.read(1)
+            while (padding):
+                input_file.read(1)
 
-                    padding -= 1
-
+                padding -= 1
 
     def __init__(self, file_path):
         with open(file_path, "rb") as input_file:
@@ -129,9 +129,9 @@ class BMPImage:
         output_file.seek(self.image_data_offset)
 
         for pixel_index in range(0, self.width * self.height):
-            output_file.write(pack("BBB", self.pixels[pixel_index].red, \
+            output_file.write(pack("BBB", self.pixels[pixel_index].blue, \
                                           self.pixels[pixel_index].green, \
-                                          self.pixels[pixel_index].blue))
+                                          self.pixels[pixel_index].red))
 
             if (pixel_index and self.width % pixel_index == 0):
                 padding = self.required_padding
