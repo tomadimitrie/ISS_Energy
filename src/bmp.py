@@ -6,6 +6,15 @@ class Pixel:
         self.green = green
         self.blue = blue
 
+    def get_red(self):
+        return self.red
+
+    def get_green(self):
+        return self.green
+
+    def get_blue(self):
+        return self.blue
+
 class FileHeader:
     def read(self, input_file):
         input_file.seek(0)
@@ -139,3 +148,12 @@ class BMPImage:
             self.image_header.write(output_file)
 
             self.__writePixels(output_file)
+
+    def get_pixel(self, x, y):
+        return self.pixels[y * self.width + x]
+
+    def get_height(self):
+        return self.height
+
+    def get_width(self):
+        return self.width
