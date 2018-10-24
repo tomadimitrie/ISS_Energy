@@ -31,6 +31,8 @@ class FileHeader:
         output_file.write(self.unused_1)
         output_file.write(self.unused_2)
 
+        output_file.write(self.image_data_offset)
+
 class ImageHeader:
     def read(self, input_file):
         input_file.seek(14)
@@ -79,7 +81,7 @@ class BMPImage:
     pixels = []
 
     def __readPixels(self, input_file):
-        input_file.seek(self.file_header.image_data_offset)
+        input_file.seek(self.image_data_offset)
 
         for pixel_index in range(0, self.width * self.height):
             pixel_data = unpack("BBB", input_file.read(3))
