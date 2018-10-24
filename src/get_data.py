@@ -6,7 +6,7 @@ def parse_color_data(color, color_data, step_range, total_pixels):
     print('')
 
     print(color, ' values equal to 0 -> ', color_data[0], ' (', \
-          '{0:.2f}'.format(color_data[0] / total_pixels * 100), '%)', sep = '')
+          '{0:.3f}'.format(color_data[0] / total_pixels * 100), '%)', sep = '')
 
     lower_range_bound = 1
     upper_range_bound = 1
@@ -19,16 +19,16 @@ def parse_color_data(color, color_data, step_range, total_pixels):
         range_value += color_data[color_index]
 
         if upper_range_bound % step_range == 0:
-            print(color, ' values between ', lower_range_bound - 1, ' and ', upper_range_bound, \
-                  ' -> ', range_value, ' (', '{0:.2f}'.format(range_value / total_pixels * 100), '%)', \
+            print(color, ' values between ', lower_range_bound, ' and ', upper_range_bound, \
+                  ' -> ', range_value, ' (', '{0:.3f}'.format(range_value / total_pixels * 100), '%)', \
                   sep = '')
 
             lower_range_bound += step_range
 
             range_value = 0
 
-    print(color, ' values between ', lower_range_bound - 1, ' and ', 255, \
-          ' -> ', range_value, ' (', '{0:.2f}'.format(range_value / total_pixels * 100), '%)', \
+    print(color, ' values between ', lower_range_bound, ' and ', 255, \
+          ' -> ', range_value, ' (', '{0:.3f}'.format(range_value / total_pixels * 100), '%)', \
           sep = '')
 
 def main():
@@ -47,9 +47,9 @@ def main():
             green[pixel.get_green()] += 1
             blue[pixel.get_blue()] += 1
 
-    total_pixels = image.get_width() * image.get_width()
+    total_pixels = image.get_width() * image.get_height()
 
-    step_range = int(input('Choose a analysis step range (1 - 200) : '))
+    step_range = int(input('Choose an analysis step range (1 - 200) : '))
 
     parse_color_data('RED', red, step_range, total_pixels)
     parse_color_data('GREEN', green, step_range, total_pixels)
