@@ -13,7 +13,7 @@ def parse_color_data(color, color_data, step_range, total_pixels):
 
     range_value = 0
 
-    for color_index in range(1, 255):
+    for color_index in range(1, 256):
         upper_range_bound += 1
 
         range_value += color_data[color_index]
