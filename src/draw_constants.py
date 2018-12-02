@@ -4,6 +4,7 @@ SCREEN_HEIGHT = 8
 BLACK = [0, 0, 0]
 BLUE  = [0, 255, 0]
 RED   = [255, 0, 0]
+GREEN = [0, 0, 255]
 
 exclamation_sign_shape = [
         2, 0, 0, 1, 1, 0, 0, 2,

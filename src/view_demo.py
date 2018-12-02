@@ -12,7 +12,7 @@ def main():
     time.sleep(5)
     sense.clear()
 
-    sense.set_pixels(create_view(quetion_sign_shape, [GREEN, BLUE]))
+    sense.set_pixels(create_view(question_sign_shape, [GREEN, BLUE]))
 
     time.sleep(5)
     sense.clear()
