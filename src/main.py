@@ -1,6 +1,6 @@
 import picamera
 import time
-import datetime as dt
+import datetime
 from PIL import Image
 import math
 import logging
@@ -11,9 +11,8 @@ import ephem
 import reverse_geocoder as rg
 from ephem import readtle, degree
 
-CONST_LOW_APPROXIMATION = 0.8
-CONST_UPPER_APPROXIMATION = 1.2
-number_of_white_pixels = 0
+# Extract current directory path.
+dir_path = os.path.dirname(os.path.realpath(__file__))
 
 # Latest TLE data for ISS location
 name = "ISS(ZARYA)"
@@ -21,142 +20,174 @@ line1 = "1 25544U 98067A   18336.32716814  .00001474  00000-0  29615-4 0  9996"
 line2 = "2 25544  51.6401 260.8120 0005200 105.4624 347.8845 15.54045418144664"
 iss = ephem.readtle(name, line1, line2)
 
+# The minimal value of the RGB color values for a Pixel to be considered 'close' to white.
+MIN_WHITE_STEP = 225
+# The maximum difference between the RGB values of a Pixel for it to not be 
+MAX_RGB_DIFFERENCE = 10
 
-#verify if a pixel is a shade close to white depending on the RGB properties
-def aprox(x, y, z):
-    if(x == 0 or y == 0 or z == 0):
-        return False
-    if((CONST_LOW_APPROXIMATION < x / y) and (x / y < CONST_UPPER_APPROXIMATION) and  (CONST_LOW_APPROXIMATION < x / z) and (x / z< CONST_UPPER_APPROXIMATION) and (CONST_LOW_APPROXIMATION<y/z) and (y / z < CONST_UPPER_APPROXIMATION)):
-       return True
-    return False
+# Checks if a Pixel's color is 'close' to white, by checking the minimum color value 
+# and the maximum difference between them.
+def is_close_to_white(pixel):
+    min_value = min(pixel.red, pixel.green, pixel.blue)
+    max_value = max(pixel.red, pixel.green, pixel.blue)
 
-#take a photo and save it
-def take_photo(cam, photo_counter):
+    return min_value             > MIN_WHITE_STEP and \
+           max_value - min_value > MAX_RGB_DIFFERENCE
+
+# Takes a photo and saves it at the specified path.
+def take_photo(cam, relative_path):
+    cam.capture(relative_path);
     
-    cam.capture("photo_"+ str(photo_counter)+".jpg")
-    
-#calculate the percentage of "white" pixels in a captured image (the percentage of clouds in the sky)
-def calculate_percentage(im, number_of_white_pixels):
-    width, height = im.size
-    for x in range(width):
-        for y in range(height):
-            rgb = im.getpixel((x,y))
-            if(aprox(rgb[0], rgb[1], rgb[2])):
-               number_of_white_pixels = number_of_white_pixels + 1
-    percentage = number_of_white_pixels / (width * height)
-    return percentage
+# Calculates the percentage of close to white pixels from an image.
+# The percentage is used to aproximate the amount of clouds that can be seen across the image.
+def get_cloud_percentage(image):
+    white_pixels = 0
 
-#calculate a further needed constant
-def calculate_b(cam):
-    b = 2.9*2.9 * 1000000/ (cam.exposure_speed)
+    for x in range(image.width):
+        for y in range(image.height):
+            if (is_close_to_white(image.getpixel(x, y))):
+                white_pixels += 1
+
+    return white_pixels / (image.width * image.height)
+
+# Calculate a further needed constant (TODO ???)
+def get_b(cam):
+    # TODO: What are 2.9 and 10000000?
+    b = 2.9 * 2.9 * 1000000/ (cam.exposure_speed)
+
     return b
 
-#calculate the exposure value of the photo taken
-def calculate_ev(b):
-    ev = math.log2(b)
-    return ev
+# Calculate the exposure value of the camera.
+def get_ev(cam):
+    b = get_b(cam)
 
-#calculate the total lux of the earth area if all pixels of its specific image were white
-def calculate_totalux(ev):
-    totalux = math.pow(2,ev) * 2.5
-    return totalux
+    return math.log2(b)
 
-#calculate the light power consumed in the taken photo
-def calculate_light_power(width, height, totalux, im):
+# Calculate the total lux of the earth area if all pixels of its specific image were white.
+def get_totalux(cam):
+    ev = calculate_ev(cam)
+
+    # TODO : What is 2.5 ?
+    return math.pow(2, ev) * 2.5
+
+# Calculate the light power consumed in a region according to an image and the camera.
+def get_light_power(image, cam):
     power = 0
-    for x in range(width):
-        for y in range(height):
-            rgb = im.getpixel((x,y))
-            lumin = 0.299*rgb[0] + 0.587*rgb[1] + 0.114*rgb[2]
-        
-            lum = totalux*lumin/255 * 4 * math.pi * 400000 * 400000
+
+    for x in range(image.width):
+        for y in range(image.height):
+
+            pixel = image.getpixel((x,y))
+            luminance = 0.299 * pixel.red + 0.587 * pixel.green + 0.114 * pixel.blue;
+            
+            # TODO : Explain
+            lum = get_totalux(cam) * luminance / 255 * 4 * math.pi * 400000 * 400000
+
             power = power + lum
+
+    # TODO : Explain
     return power/30720000000000
-    
+
+def setup_cam(cam):
+    cam.resolution = (640, 480)
+
+# The angle at which twilight appears. (???)
+TWILIGHT_ANGLE = 5
+
+# Returns time period (Day / Night), using ISS data.
+def get_time_period(iss):
+    observer = ephem.Observer()
+
+    observer.lat = iss.sublat
+    observer.long = iss.sublong
+    observer.elevation = 0
+
+    sun.compute(observer)
+    sun_angle = math_degrees(sun.alt)
+
+    return "DAY" if sun_angle > twilight else "NIGHT"
+
 def main():
-    
     #Create a datetime variable to store the start time
     start_time = datetime.datetime.now()
-
     #Create a datetime variable to store the current time
     now_time = datetime.datetime.now()
+
+    # Get sun data.
     sun = ephem.Sun()
-    twilight = math.radians(-6)
-    
-    #Set up camera
+
+    # Setup camera
     cam = picamera.PiCamera()
-    cam.resolution = (640, 480)
-    
-    #Set some local parameters to zero
-    photo_counter = 0
-    number_of_white_pixels = 0
-    
-    #write the heading of the data csv which we will build from observations and calculus
-    f = open('data01.csv', 'a')
-    f.write("no, time, lat, long, location, whitePerc, lightPower\n")
-    
-    #run the code for less than three hours
-    while(now_time < start_time + datetime.timedelta(minutes=176)):
-                #compute the current location of the ISS with each loop
-                iss.compute()
+    setup_cam(cam);
+
+    # Set log file.
+    logzero.logfile(dir_path + "data.csv")
+
+    # Set custom formatter.
+    formatter = logging.Formatter('%(name)s - %(asctime)-15s - %(levelname)s: %(message)s')
+    logzero.formatter(formatter)
+
+    csv_file = open('data.csv', 'wb')
+    writer = csv.writer(csv_file)
+
+    # Write CSV header.
+    writer.writeheader("Number, Time, Latitude, Longitude, Location, Cloud Percentage, Light Power");
+
+    # How many minutes to run the loop for.
+    LOOP_TIME = 60
+
+    # Run the code for less than 
+    while (now_time < start_time + datetime.timedelta(minutes = LOOP_TIME)):
+        photo_count = 0
+
+        # Compute the current location of the ISS.
+        iss.compute()
                 
-                #get the country below ISS at the moment
-                pos = (iss.sublat / degree, iss.sublong / degree)
-                location = rg.search(pos)
+        # Get the country below ISS at the moment.
+        pos = (iss.sublat / degree, iss.sublong / degree)
+        location = rg.search(pos)
+
+        time = get_time_period(iss);
+
+        # Calculate the percentage of clouds in an image during daylight.
+        if (time == "DAY"):
+            cam.exposure_mode = 'auto'
+
+            try:
+                photo_path = "photo_" + str(photo_count) + ".jpg"
+                take_photo(cam, photo_path)
                 
-                #calculate if it's day time or night time
-                observer = ephem.Observer()
-                observer.lat = iss.sublat
-                observer.long = iss.sublong
-                observer.elevation = 0
-                sun.compute(observer)
-                sun_angle = math.degrees(sun.alt)
-                day_or_night = "Day" if sun_angle > twilight else "Night"
-                
-                #calculate the clouds percentage of a day photograph and save it in the csv file
-                if(day_or_night == "Day"):
-                    photo_counter = photo_counter + 1
-                    power = 0
-                    number_of_white_pixels = 0
-                    perc = 0
-                    cam.exposure_mode = 'auto'
-                    try:
-                        take_photo(cam, photo_counter)
-                        im = Image.open("photo_"+str(photo_counter)+".jpg")
-                        perc = calculate_percentage(im, number_of_white_pixels)
-                        
-                        f.write( str(photo_counter) + ", " + str(datetime.datetime.now().time()) + ", " + str(iss.sublat) + ", " + str(iss.sublong) + ", " + str(location) + ", " + str(perc) + ", "+ str(power) + "\n")
+                image = Image.open(photo_path)
                     
-                    except Exception as e:
-                        logger.error("An error occured: " + str(e))
+                cloud_percentage = get_cloud_percentage(image)
+
+                logger.info("%s, %s, %s, %s, %s", photo_counter, datetime.datetime.now().time()),
+                                                  iss.sublat, iss.sublong, cloud_percentage))
+            except Exception as exception:
+                logger.error("An error occured: " + str(exception))
                 
-                #calculate the total light power of a terrestrial area photographed during night
-                if(day_or_night == "Night"):
-                    photo_counter = photo_counter + 1
-                    perc = 0
-                    power = 0
-                    cam.exposure_mode = 'night'
-                    try:
-                        take_photo(cam, photo_counter)
-                        im = Image.open("photo_"+str(photo_counter)+".jpg")
-                        b = calculate_b(cam)
-                        ev = calculate_ev(b)
-                        totalux = calculate_totalux(ev)
-                        width, height = im.size
-                        power = calculate_light_power(width, height, totalux, im)
+        # Calculate the total light power of a terrestrial area photographed during night.
+        else:
+            cam.exposure_mode = 'night'
+            
+            try:
+                photo_path = "photo_" + str(photo_count) + ".jpg"
+                take_photo(cam, photo_counter)
+
+                image = Image.open(photo_path)
                         
-                        f.write(str(photo_counter) + ", " + str(datetime.datetime.now().time()) + ", " + str(iss.sublat) + ", " + str(iss.sublong) + ", " + str(location) + ", " + str(perc) + ", "+ str(power) + "\n")
+                light_power = get_light_power(image, camera)
+
+                logger.info("%s, %s, %s, %s, %s", photo_counter, datetime.datetime.now().time()),
+                                                  iss.sublat, iss.sublong, light_power))
                     
-                    except Exception as e:
-                        logger.error("An error occured: " + str(e))
+            except Exception as exception:
+                logger.error("An error occured: " + str(exception))
 
                 time.sleep(30)
+
                 now_time = datetime.datetime.now()
-    
-    
+                photo_count += 1
     
 if __name__ == "__main__":
     main()
-
-
-
