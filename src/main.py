@@ -1,15 +1,19 @@
 import picamera
+
+import os
 import time
 import datetime
-from PIL import Image
 import math
-import logging
-from logzero import logger
-import datetime
-import os
+
+import reverse_geocoder
 import ephem
-import reverse_geocoder as rg
+
+import logging
+import logzero
+
+from PIL import Image
 from ephem import readtle, degree
+from logzero import logger
 
 # Extract current directory path.
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -92,7 +96,7 @@ def setup_cam(cam):
     cam.resolution = (640, 480)
 
 # The angle at which twilight appears. (???)
-TWILIGHT_ANGLE = 5
+TWILIGHT_ANGLE = math.radians(-6)
 
 # Returns time period (Day / Night), using ISS data.
 def get_time_period(iss):
@@ -108,9 +112,9 @@ def get_time_period(iss):
     return "DAY" if sun_angle > twilight else "NIGHT"
 
 def main():
-    #Create a datetime variable to store the start time
+    # Create a datetime variable to store the start time
     start_time = datetime.datetime.now()
-    #Create a datetime variable to store the current time
+    # Create a datetime variable to store the current time
     now_time = datetime.datetime.now()
 
     # Get sun data.
@@ -121,17 +125,11 @@ def main():
     setup_cam(cam);
 
     # Set log file.
-    logzero.logfile(dir_path + "data.csv")
+    logzero.logfile(dir_path + "\data.csv")
 
     # Set custom formatter.
     formatter = logging.Formatter('%(name)s - %(asctime)-15s - %(levelname)s: %(message)s')
     logzero.formatter(formatter)
-
-    csv_file = open('data.csv', 'wb')
-    writer = csv.writer(csv_file)
-
-    # Write CSV header.
-    writer.writeheader("Number, Time, Latitude, Longitude, Location, Cloud Percentage, Light Power");
 
     # How many minutes to run the loop for.
     LOOP_TIME = 60
@@ -145,7 +143,7 @@ def main():
                 
         # Get the country below ISS at the moment.
         pos = (iss.sublat / degree, iss.sublong / degree)
-        location = rg.search(pos)
+        location = reverse_geocoder.search(pos)
 
         time = get_time_period(iss);
 
@@ -161,8 +159,8 @@ def main():
                     
                 cloud_percentage = get_cloud_percentage(image)
 
-                logger.info("%s, %s, %s, %s, %s", photo_counter, datetime.datetime.now().time()),
-                                                  iss.sublat, iss.sublong, cloud_percentage))
+                logger.info("%s, %s, %s, %s, %s", str(photo_counter), str(datetime.datetime.now().time())),
+                                                  str(iss.sublat), str(iss.sublong), str(cloud_percentage)))
             except Exception as exception:
                 logger.error("An error occured: " + str(exception))
                 
@@ -178,8 +176,8 @@ def main():
                         
                 light_power = get_light_power(image, camera)
 
-                logger.info("%s, %s, %s, %s, %s", photo_counter, datetime.datetime.now().time()),
-                                                  iss.sublat, iss.sublong, light_power))
+                logger.info("%s, %s, %s, %s, %s", str(photo_counter), str(datetime.datetime.now().time())),
+                                                  str(iss.sublat), str(iss.sublong), str(light_power)))
                     
             except Exception as exception:
                 logger.error("An error occured: " + str(exception))
