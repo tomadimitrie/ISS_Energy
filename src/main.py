@@ -2,17 +2,18 @@ import picamera
 
 import os
 import time
-import datetime
+import datetime 
 import math
 
 import reverse_geocoder
 import ephem
+from ephem import readtle, degree
 
 import logging
 import logzero
 
 from PIL import Image
-from ephem import readtle, degree
+#from ephem import readtle, degree
 from logzero import logger
 
 # Extract current directory path.
@@ -24,6 +25,7 @@ line1 = "1 25544U 98067A   18336.32716814  .00001474  00000-0  29615-4 0  9996"
 line2 = "2 25544  51.6401 260.8120 0005200 105.4624 347.8845 15.54045418144664"
 iss = ephem.readtle(name, line1, line2)
 
+#sun = ephem.Sun()
 # The minimal value of the RGB color values for a Pixel to be considered 'close' to white.
 MIN_WHITE_STEP = 225
 # The maximum difference between the RGB values of a Pixel for it to not be 
@@ -40,7 +42,7 @@ def is_close_to_white(pixel):
 
 # Takes a photo and saves it at the specified path.
 def take_photo(cam, relative_path):
-    cam.capture(relative_path);
+    cam.capture(str(dir_path) + "/" + str(relative_path));
     
 # Calculates the percentage of close to white pixels from an image.
 # The percentage is used to aproximate the amount of clouds that can be seen across the image.
@@ -105,11 +107,11 @@ def get_time_period(iss):
     observer.lat = iss.sublat
     observer.long = iss.sublong
     observer.elevation = 0
-
+    sun = ephem.Sun()
     sun.compute(observer)
-    sun_angle = math_degrees(sun.alt)
+    sun_angle = math.degrees(sun.alt)
 
-    return "DAY" if sun_angle > twilight else "NIGHT"
+    return "DAY" if sun_angle > TWILIGHT_ANGLE else "NIGHT"
 
 def main():
     # Create a datetime variable to store the start time
@@ -118,7 +120,7 @@ def main():
     now_time = datetime.datetime.now()
 
     # Get sun data.
-    sun = ephem.Sun()
+#    sun = ephem.Sun()
 
     # Setup camera
     cam = picamera.PiCamera()
@@ -132,11 +134,11 @@ def main():
     logzero.formatter(formatter)
 
     # How many minutes to run the loop for.
-    LOOP_TIME = 60
+    LOOP_TIME = 2
 
     # Run the code for less than 
     while (now_time < start_time + datetime.timedelta(minutes = LOOP_TIME)):
-        photo_count = 0
+        photo_counter = 0
 
         # Compute the current location of the ISS.
         iss.compute()
@@ -145,22 +147,22 @@ def main():
         pos = (iss.sublat / degree, iss.sublong / degree)
         location = reverse_geocoder.search(pos)
 
-        time = get_time_period(iss);
+        timePERIOD = get_time_period(iss);
 
         # Calculate the percentage of clouds in an image during daylight.
-        if (time == "DAY"):
+        if (timePERIOD == "DAY"):
             cam.exposure_mode = 'auto'
 
             try:
-                photo_path = "photo_" + str(photo_count) + ".jpg"
+                photo_path = "photo_" + str(photo_counter) + ".jpg"
                 take_photo(cam, photo_path)
                 
                 image = Image.open(photo_path)
                     
                 cloud_percentage = get_cloud_percentage(image)
 
-                logger.info("%s, %s, %s, %s, %s", str(photo_counter), str(datetime.datetime.now().time())),
-                                                  str(iss.sublat), str(iss.sublong), str(cloud_percentage)))
+                logger.info("%s, %s, %s, %s, %s", str(photo_counter), str(datetime.datetime.now().time()),
+                                                  str(iss.sublat), str(iss.sublong), str(cloud_percentage))
             except Exception as exception:
                 logger.error("An error occured: " + str(exception))
                 
@@ -169,15 +171,15 @@ def main():
             cam.exposure_mode = 'night'
             
             try:
-                photo_path = "photo_" + str(photo_count) + ".jpg"
+                photo_path = "photo_" + str(photo_counter) + ".jpg"
                 take_photo(cam, photo_counter)
 
                 image = Image.open(photo_path)
                         
                 light_power = get_light_power(image, camera)
 
-                logger.info("%s, %s, %s, %s, %s", str(photo_counter), str(datetime.datetime.now().time())),
-                                                  str(iss.sublat), str(iss.sublong), str(light_power)))
+                logger.info("%s, %s, %s, %s, %s", str(photo_counter), str(datetime.datetime.now().time()),
+                                                  str(iss.sublat), str(iss.sublong), str(light_power))
                     
             except Exception as exception:
                 logger.error("An error occured: " + str(exception))
@@ -185,7 +187,7 @@ def main():
                 time.sleep(30)
 
                 now_time = datetime.datetime.now()
-                photo_count += 1
+                photo_counter += 1
     
 if __name__ == "__main__":
     main()
