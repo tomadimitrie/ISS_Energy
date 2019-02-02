@@ -34,8 +34,8 @@ MAX_RGB_DIFFERENCE = 10
 # Checks if a Pixel's color is 'close' to white, by checking the minimum color value 
 # and the maximum difference between them.
 def is_close_to_white(pixel):
-    min_value = min(pixel.red, pixel.green, pixel.blue)
-    max_value = max(pixel.red, pixel.green, pixel.blue)
+    min_value = min(pixel[0], pixel[1], pixel[2])
+    max_value = max(pixel[0], pixel[1], pixel[2])
 
     return min_value             > MIN_WHITE_STEP and \
            max_value - min_value > MAX_RGB_DIFFERENCE
@@ -51,7 +51,7 @@ def get_cloud_percentage(image):
 
     for x in range(image.width):
         for y in range(image.height):
-            if (is_close_to_white(image.getpixel(x, y))):
+            if (is_close_to_white(image.getpixel((x, y)))):
                 white_pixels += 1
 
     return white_pixels / (image.width * image.height)
@@ -135,10 +135,10 @@ def main():
 
     # How many minutes to run the loop for.
     LOOP_TIME = 2
-
+    photo_counter = 0
     # Run the code for less than 
     while (now_time < start_time + datetime.timedelta(minutes = LOOP_TIME)):
-        photo_counter = 0
+        photo_counter+=1
 
         # Compute the current location of the ISS.
         iss.compute()
@@ -184,10 +184,10 @@ def main():
             except Exception as exception:
                 logger.error("An error occured: " + str(exception))
 
-                time.sleep(30)
+        time.sleep(30)
 
-                now_time = datetime.datetime.now()
-                photo_counter += 1
+        now_time = datetime.datetime.now()
+            
     
 if __name__ == "__main__":
     main()
